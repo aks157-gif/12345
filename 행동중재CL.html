@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>행동 통계 및 중재 체크리스트</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; font-size: 1.3rem; margin-bottom: 20px; }
+        h3 { font-size: 1.1rem; color: #444; margin-top: 20px; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+        
+        /* 공통 버튼 스타일 */
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-secondary { background-color: #e2e6ea; color: #333; }
+        .btn-submit { background-color: #28a745; color: white; margin-top: 25px; }
+        .btn-excel { background-color: #1f7a44; color: white; margin-top: 15px; }
+        
+        /* 학생 카드 스타일 */
+        .student-card { background: #eef2f5; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .student-name { font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; text-align: center; }
+        .student-actions { display: flex; gap: 10px; }
+        .student-actions button { padding: 10px; font-size: 0.95rem; margin-bottom: 0; }
+        
+        /* 입력 폼 및 체크리스트 */
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+        .behavior-list { display: flex; flex-direction: column; gap: 10px; }
+        .behavior-item { display: flex; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; border: 1px solid #eee; }
+        .behavior-item input { margin-right: 15px; width: 22px; height: 22px; }
+
+        /* 새로운 행동 추가 영역 스타일 */
+        .add-behavior-box { display: flex; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; }
+        .add-behavior-box input { margin-bottom: 0; flex: 1; font-size: 0.95rem; }
+        .btn-add { background-color: #6c757d; color: white; width: auto; padding: 12px 15px; font-size: 1rem; margin-bottom: 0; white-space: nowrap; }
+
+        /* 통계 화면 스타일 */
+        .stat-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .stat-table th, .stat-table td { border: 1px solid #ddd; padding: 12px; text-align: center; font-size: 1rem; }
+        .stat-table th { background-color: #f2f2f2; }
+        .log-timeline { max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
+        .log-item { padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 0.95rem; }
+        .time-badge { color: #ffc107; font-weight: bold; background: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-right: 5px; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+        .helper-text { font-size: 0.85rem; color: #666; margin-top: -10px; margin-bottom: 15px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div id="homeView" class="view active">
+            <h2>👥 우리 반 학생 목록</h2>
+            <div id="studentList"></div>
+            <hr style="border: 0; border-top: 1px dashed #ccc; margin: 20px 0;">
+            <button class="btn-primary" onclick="showView('registerView')">➕ 새 학생 등록하기</button>
+        </div>
+
+        <div id="registerView" class="view">
+            <h2>학생 및 문제행동 등록</h2>
+            <label>학생 이름</label>
+            <input type="text" id="studentName" placeholder="예: 김철수">
+            
+            <label>관찰할 문제행동 목록</label>
+            <span class="helper-text">쉼표(,)로 구분하여 입력하세요.</span>
+            <input type="text" id="behaviorInputs" placeholder="예: 자리이탈, 소리지르기">
+            
+            <button class="btn-primary" onclick="saveStudent()">저장하기</button>
+            <button class="btn-secondary" onclick="showView('homeView')">취소</button>
+        </div>
+
+        <div id="checklistView" class="view">
+            <h2 id="checklistTitle">학생 행동 기록</h2>
+            
+            <div class="behavior-list" id="behaviorChecklist"></div>
+
+            <div class="add-behavior-box">
+                <input type="text" id="newBehaviorInput" placeholder="새로운 문제행동 입력">
+                <button class="btn-add" onclick="addNewBehavior()">+ 추가</button>
+            </div>
+
+            <button class="btn-submit" onclick="submitLog()">📝 기록 완료</button>
+            <button class="btn-secondary" onclick="showView('homeView')">돌아가기</button>
+        </div>
+
+        <div id="statsView" class="view">
+            <h2 id="statsTitle">오늘의 행동 통계</h2>
+            
+            <h3>📊 행동별 발생 빈도 (오늘)</h3>
+            <table class="stat-table">
+                <thead>
+                    <tr><th>문제 행동</th><th>발생 횟수</th></tr>
+                </thead>
+                <tbody id="statTableBody"></tbody>
+            </table>
+
+            <h3>⏳ 시간별 상세 기록 (전체)</h3>
+            <div class="log-timeline" id="logTimeline"></div>
+
+            <button class="btn-excel" onclick="exportToCSV()">🟢 구글시트/엑셀용 파일 내보내기</button>
+            <button class="btn-secondary" onclick="showView('homeView')" style="margin-top: 10px;">돌아가기</button>
+        </div>
+
+    </div>
+
+    <script>
+        // 데이터 저장소 초기화
+        let students = JSON.parse(localStorage.getItem('students')) || [];
+        let behaviorLogs = JSON.parse(localStorage.getItem('behaviorLogs')) || [];
+        let currentStudentIndex = null;
+
+        renderStudentList();
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // 학생 리스트 렌더링
+        function renderStudentList() {
+            const listDiv = document.getElementById('studentList');
+            listDiv.innerHTML = '';
+            
+            if (students.length === 0) {
+                listDiv.innerHTML = '<p style="text-align:center; color:#888;">등록된 학생이 없습니다.</p>';
+                return;
+            }
+
+            students.forEach((student, index) => {
+                const card = document.createElement('div');
+                card.className = 'student-card';
+                card.innerHTML = `
+                    <div class="student-name">🧑‍🏫 ${student.name}</div>
+                    <div class="student-actions">
+                        <button class="btn-primary" onclick="openChecklist(${index})">📝 행동 기록</button>
+                        <button class="btn-secondary" onclick="openStats(${index})">📊 오늘 통계</button>
+                    </div>
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
+        // 새 학생 등록
+        function saveStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const behaviorsRaw = document.getElementById('behaviorInputs').value.trim();
+            
+            if (!name || !behaviorsRaw) {
+                alert('학생 이름과 문제행동을 모두 입력해주세요.');
+                return;
+            }
+
+            const behaviorsArray = behaviorsRaw.split(',').map(b => b.trim()).filter(b => b !== '');
+            students.push({ name: name, behaviors: behaviorsArray });
+            localStorage.setItem('students', JSON.stringify(students));
+            
+            document.getElementById('studentName').value = '';
+            document.getElementById('behaviorInputs').value = '';
+            
+            renderStudentList();
+            showView('homeView');
+        }
+
+        // 학생 기록용 체크리스트 열기
+        function openChecklist(index) {
+            currentStudentIndex = index;
+            const student = students[index];
+            document.getElementById('checklistTitle').innerText = `📝 ${student.name} 행동 기록`;
+            
+            const checklistDiv = document.getElementById('behaviorChecklist');
+            checklistDiv.innerHTML = '';
+
+            student.behaviors.forEach(behavior => {
+                const label = document.createElement('label');
+                label.className = 'behavior-item';
+                label.innerHTML = `<input type="checkbox" value="${behavior}"> ${behavior}`;
+                checklistDiv.appendChild(label);
+            });
+            showView('checklistView');
+        }
+
+        // 🔥 새로 추가된 기능: 즉각적인 행동 추가
+        function addNewBehavior() {
+            const inputEl = document.getElementById('newBehaviorInput');
+            const newBehavior = inputEl.value.trim();
+            
+            if (!newBehavior) {
+                alert('추가할 행동을 입력해주세요.');
+                return;
+            }
+
+            const student = students[currentStudentIndex];
+            
+            // 중복 검사
+            if (student.behaviors.includes(newBehavior)) {
+                alert('이미 등록된 행동입니다.');
+                return;
+            }
+            
+            // 학생 데이터에 새 행동 추가 후 저장
+            student.behaviors.push(newBehavior);
+            localStorage.setItem('students', JSON.stringify(students));
+            
+            // 입력창 비우고 체크리스트 새로고침
+            inputEl.value = '';
+            openChecklist(currentStudentIndex);
+        }
+
+        // 행동 기록 저장
+        function submitLog() {
+            const checkboxes = document.querySelectorAll('#behaviorChecklist input:checked');
+            if(checkboxes.length === 0) {
+                alert('발생한 행동을 하나 이상 체크해주세요.');
+                return;
+            }
+            
+            const now = new Date();
+            const dateString = now.toISOString().split('T')[0];
+            const timeString = `${now.getHours()}:${now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()}`;
+            const studentName = students[currentStudentIndex].name;
+
+            checkboxes.forEach(cb => {
+                behaviorLogs.push({
+                    studentName: studentName,
+                    date: dateString,
+                    time: timeString,
+                    behavior: cb.value
+                });
+            });
+
+            localStorage.setItem('behaviorLogs', JSON.stringify(behaviorLogs));
+            alert('기록되었습니다.');
+            showView('homeView');
+        }
+
+        // 통계 화면 열기
+        function openStats(index) {
+            currentStudentIndex = index;
+            const student = students[index];
+            const todayStr = new Date().toISOString().split('T')[0];
+            
+            document.getElementById('statsTitle').innerText = `📊 ${student.name} 오늘 통계 (${todayStr})`;
+
+            const todayLogs = behaviorLogs.filter(log => log.studentName === student.name && log.date === todayStr);
+            const statCounts = {};
+            student.behaviors.forEach(b => statCounts[b] = 0); 
+            todayLogs.forEach(log => {
+                if(statCounts[log.behavior] !== undefined) statCounts[log.behavior]++;
+                else statCounts[log.behavior] = 1; // 사후에 삭제/변경된 행동에 대한 방어코드
+            });
+
+            const tableBody = document.getElementById('statTableBody');
+            tableBody.innerHTML = '';
+            for (const [behavior, count] of Object.entries(statCounts)) {
+                tableBody.innerHTML += `<tr><td>${behavior}</td><td><strong>${count}회</strong></td></tr>`;
+            }
+
+            const timelineDiv = document.getElementById('logTimeline');
+            timelineDiv.innerHTML = '';
+            const studentAllLogs = behaviorLogs.filter(log => log.studentName === student.name).reverse(); 
+            
+            if(studentAllLogs.length === 0) {
+                timelineDiv.innerHTML = '<p style="color:#999; text-align:center;">누적된 기록이 없습니다.</p>';
+            } else {
+                studentAllLogs.forEach(log => {
+                    timelineDiv.innerHTML += `<div class="log-item"><span class="time-badge">${log.date} ${log.time}</span> ${log.behavior}</div>`;
+                });
+            }
+
+            showView('statsView');
+        }
+
+        // CSV 파일 내보내기
+        function exportToCSV() {
+            const student = students[currentStudentIndex];
+            const studentAllLogs = behaviorLogs.filter(log => log.studentName === student.name);
+
+            if(studentAllLogs.length === 0) {
+                alert('내보낼 데이터가 없습니다.');
+                return;
+            }
+
+            let csvContent = "\ufeff날짜,시간,학생이름,발생행동\n";
+            studentAllLogs.forEach(log => {
+                csvContent += `${log.date},${log.time},${log.studentName},${log.behavior}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `${student.name}_행동기록_데이터.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
